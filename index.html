@@ -5,28 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Weather App</title>
   <style>
+    :root {
+      --bg-gradient: linear-gradient(to right, #6dd5ed, #2193b0);
+      --card-bg: rgba(0, 0, 0, 0.4);
+      --text-color: #fff;
+    }
+
+    body.dark {
+      --bg-gradient: linear-gradient(to right, #232526, #414345);
+      --card-bg: rgba(255, 255, 255, 0.1);
+      --text-color: #f1f1f1;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #6dd5ed, #2193b0);
-      color: #fff;
+      background: var(--bg-gradient);
+      color: var(--text-color);
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
+      justify-content: flex-start;
+      min-height: 100vh;
       margin: 0;
+      padding: 20px;
+      transition: background 0.5s ease, color 0.3s ease;
     }
 
     h1 {
       margin-bottom: 20px;
     }
 
+    .theme-toggle {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      background: #ff9800;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+    }
+
+    .theme-toggle:hover {
+      background: #e68900;
+    }
+
     .container {
-      background: rgba(0, 0, 0, 0.4);
+      background: var(--card-bg);
       padding: 20px;
       border-radius: 15px;
       text-align: center;
-      width: 300px;
+      width: 340px;
+      margin-bottom: 20px;
+      transition: background 0.5s ease;
     }
 
     input {
@@ -53,30 +86,65 @@
 
     .result {
       margin-top: 20px;
-      font-size: 18px;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .forecast {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .day {
+      background: var(--card-bg);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      transition: background 0.5s ease;
+    }
+
+    .day img {
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
+  <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
   <h1>Weather App</h1>
   <div class="container">
     <input type="text" id="locationInput" placeholder="Enter city name" />
     <button onclick="getWeather()">Get Weather</button>
     <div class="result" id="result"></div>
+    <div class="forecast" id="forecast"></div>
   </div>
 
   <script>
-    async function getWeather() {
-      const location = document.getElementById("locationInput").value;
-      const resultDiv = document.getElementById("result");
+    const apiKey = "6f9b4db0231f4a25bb7184129250609";
 
-      if (!location) {
+    // Fetch weather by city or coordinates
+    async function getWeather(city = null, lat = null, lon = null) {
+      const resultDiv = document.getElementById("result");
+      const forecastDiv = document.getElementById("forecast");
+      const locationInput = document.getElementById("locationInput").value;
+
+      resultDiv.innerHTML = "";
+      forecastDiv.innerHTML = "";
+
+      let query = "";
+      if (city) {
+        query = city;
+      } else if (lat && lon) {
+        query = `${lat},${lon}`;
+      } else if (locationInput) {
+        query = locationInput;
+      } else {
         resultDiv.innerHTML = "❌ Please enter a location.";
         return;
       }
 
-      const apiKey = "6f9b4db0231f4a25bb7184129250609";
-      const url = `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${location}&aqi=yes`;
+      const url = `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=5&aqi=yes&alerts=no`;
 
       try {
         const response = await fetch(url);
@@ -84,18 +152,75 @@
           throw new Error("Location not found");
         }
         const data = await response.json();
+
+        // Current weather
         const temp = data.current.temp_c;
+        const feelsLike = data.current.feelslike_c;
+        const humidity = data.current.humidity;
+        const wind = data.current.wind_kph;
         const condition = data.current.condition.text;
         const icon = data.current.condition.icon;
 
         resultDiv.innerHTML = `
           <h3>${data.location.name}, ${data.location.country}</h3>
           <p>🌡️ Temperature: <b>${temp}°C</b></p>
+          <p>🤔 Feels Like: <b>${feelsLike}°C</b></p>
+          <p>💧 Humidity: <b>${humidity}%</b></p>
+          <p>🌬️ Wind Speed: <b>${wind} kph</b></p>
           <p>${condition}</p>
           <img src="${icon}" alt="Weather Icon"/>
         `;
+
+        // Forecast
+        data.forecast.forecastday.forEach(day => {
+          const date = day.date;
+          const avgTemp = day.day.avgtemp_c;
+          const maxTemp = day.day.maxtemp_c;
+          const minTemp = day.day.mintemp_c;
+          const dayCondition = day.day.condition.text;
+          const dayIcon = day.day.condition.icon;
+
+          const dayDiv = document.createElement("div");
+          dayDiv.classList.add("day");
+          dayDiv.innerHTML = `
+            <h4>${date}</h4>
+            <img src="${dayIcon}" alt="Icon"/>
+            <p>${dayCondition}</p>
+            <p>🌡️ Avg: ${avgTemp}°C</p>
+            <p>⬆️ Max: ${maxTemp}°C</p>
+            <p>⬇️ Min: ${minTemp}°C</p>
+          `;
+          forecastDiv.appendChild(dayDiv);
+        });
       } catch (error) {
         resultDiv.innerHTML = "⚠️ Could not fetch weather data.";
+      }
+    }
+
+    // Auto-detect location
+    window.onload = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            getWeather(null, lat, lon);
+          },
+          () => getWeather("London") // fallback
+        );
+      } else {
+        getWeather("London");
+      }
+    };
+
+    // Theme toggle
+    function toggleTheme() {
+      document.body.classList.toggle("dark");
+      const btn = document.querySelector(".theme-toggle");
+      if (document.body.classList.contains("dark")) {
+        btn.textContent = "🌞 Light Mode";
+      } else {
+        btn.textContent = "🌙 Dark Mode";
       }
     }
   </script>
