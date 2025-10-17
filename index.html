@@ -178,7 +178,7 @@
         return;
       }
 
-      const url = `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=5&aqi=yes&alerts=no`;
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=5&aqi=yes&alerts=no`;
 
       try {
         const response = await fetch(url);
